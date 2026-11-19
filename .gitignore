@@ -1,0 +1,13 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# App bundle and release zip produced by build.sh
+build/
+
+# macOS / editors
+.DS_Store
+.vscode/
+*.xcodeproj/
+xcuserdata/
