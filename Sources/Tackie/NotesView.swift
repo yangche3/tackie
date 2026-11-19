@@ -107,6 +107,7 @@ struct NoteEditor: View {
     @ObservedObject var store: Store
     let note: Note
     @FocusState private var focused: Bool
+    @ViewState private var textView: NSTextView?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -165,12 +166,35 @@ struct NoteEditor: View {
                 DispatchQueue.main.async {
                     let window = NSApp.windows.first(where: \.isKeyWindow)
                     if let tv = window?.firstResponder as? NSTextView {
+                        textView = tv
+                        tv.isAutomaticLinkDetectionEnabled = true    // links typed from now on
+                        Self.markLinks(in: tv)                       // links already in the note
                         tv.setSelectedRange(NSRange(location: (tv.string as NSString).length, length: 0))
                         tv.scrollRangeToVisible(tv.selectedRange())
                     }
                 }
             }
         }
+        // Changing the text size restyles the whole note, which drops the link styling.
+        .onChange(of: store.fontSize) { _ in
+            DispatchQueue.main.async { if let textView { Self.markLinks(in: textView) } }
+        }
+        .onChange(of: store.fontStyle) { _ in
+            DispatchQueue.main.async { if let textView { Self.markLinks(in: textView) } }
+        }
+    }
+
+    /// Makes every link in the note clickable. Only styling changes; the text itself is untouched.
+    static func markLinks(in tv: NSTextView) {
+        guard let storage = tv.textStorage else { return }
+        let text = storage.string
+        let matches = (try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue))?
+            .matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)) ?? []
+        storage.beginEditing()
+        for match in matches {
+            if let url = match.url { storage.addAttribute(.link, value: url, range: match.range) }
+        }
+        storage.endEditing()
     }
 }
 

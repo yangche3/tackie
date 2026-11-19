@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI      // AttributedString link styling for Text
 
 struct TodoItem: Identifiable, Codable, Equatable {
     var id = UUID()
@@ -360,8 +361,11 @@ final class Store: ObservableObject {
 
     /// The first future date mentioned in `text`, plus the exact words that produced it.
     static func detectDateMatch(in text: String) -> (date: Date, phrase: String)? {
+        // Numbers inside a link (meeting IDs, dated URLs) aren't reminder times.
+        let linkRanges = linkMatches(in: text).map(\.range)
         guard let detector,
-              let match = detector.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let match = detector.matches(in: text, range: NSRange(text.startIndex..., in: text))
+                .first(where: { m in !linkRanges.contains { NSIntersectionRange($0, m.range).length > 0 } }),
               var date = match.date,
               let range = Range(match.range, in: text) else { return nil }
         // "at 5pm" typed at 6pm means tomorrow, not an already-missed reminder.
@@ -371,5 +375,27 @@ final class Store: ObservableObject {
         }
         guard date > now else { return nil }
         return (date, text[range].lowercased().trimmingCharacters(in: .whitespaces))
+    }
+
+    // MARK: - Links ("apple.com", "https://…", "name@example.com")
+
+    private static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
+    private static func linkMatches(in text: String) -> [NSTextCheckingResult] {
+        linkDetector?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []
+    }
+
+    static func links(in text: String) -> [URL] { linkMatches(in: text).compactMap(\.url) }
+
+    /// `text` with its links made clickable, for display in a SwiftUI `Text`.
+    static func linked(_ text: String) -> AttributedString {
+        var result = AttributedString(text)
+        for match in linkMatches(in: text) {
+            guard let url = match.url, let r = Range(match.range, in: text),
+                  let ar = Range(r, in: result) else { continue }
+            result[ar].link = url
+            result[ar].underlineStyle = .single
+        }
+        return result
     }
 }

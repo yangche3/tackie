@@ -472,14 +472,15 @@ struct TodoRow: View {
                         .onExitCommand { editingID = nil }
                         .onChange(of: fieldFocused) { focused in if !focused { commit() } }
                 } else {
-                    Text(item.title)
+                    Text(Store.linked(item.title))
                         .font(store.itemFont())
                         .firstLineMid(store)
                         .strikethrough(item.done)
                         .foregroundStyle(item.done ? .secondary : .primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
-                        .onTapGesture(count: 2) { editingID = item.id }
+                        // Simultaneous, so a single click on a link still opens it.
+                        .simultaneousGesture(TapGesture(count: 2).onEnded { editingID = item.id })
                 }
                 if isEditing {
                     // Live preview of what the reminder will be once the edit is saved.
@@ -557,6 +558,9 @@ struct TodoRow: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(item.title, forType: .string)
         }
+        ForEach(Store.links(in: item.title), id: \.self) { url in
+            Button("Open \(Self.shortName(url))") { NSWorkspace.shared.open(url) }
+        }
         Menu("Remind Me") {
             Button("In 15 Minutes") { store.setDue(item.id, Date().addingTimeInterval(15 * 60)) }
             Button("In 1 Hour") { store.setDue(item.id, Date().addingTimeInterval(3600)) }
@@ -573,6 +577,13 @@ struct TodoRow: View {
         Divider()
         Button(item.done ? "Mark as Not Done" : "Mark as Done") { store.toggle(item.id) }
         Button("Delete") { store.delete(item.id) }
+    }
+
+    /// "github.com" for a web link, the address for an email link.
+    static func shortName(_ url: URL) -> String {
+        if url.scheme == "mailto" { return url.absoluteString.replacingOccurrences(of: "mailto:", with: "") }
+        let host = url.host ?? url.absoluteString
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     private var picker: some View {

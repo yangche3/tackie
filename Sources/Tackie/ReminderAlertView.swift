@@ -33,11 +33,11 @@ private struct ReminderCard: View {
                 .onAppear { ring = true }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(item.title)
+                Text(Store.linked(item.title))
                     .font(store.noteFont(size: 14, weight: .semibold))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .onTapGesture(perform: onOpenNote)
+                    .simultaneousGesture(TapGesture().onEnded(onOpenNote))   // links stay clickable
                 if let due = item.due {
                     Text("Due \(TodoRow.format(due))")
                         .font(store.noteFont(size: 11.5))
