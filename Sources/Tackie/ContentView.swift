@@ -310,6 +310,13 @@ struct ContentView: View {
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 8))
 
+                if completedCount > 0 {
+                    completedRow
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 6, bottom: 2, trailing: 8))
+                }
+
                 ForEach(doneItems) { item in row(item) }
                     .onMove { from, to in
                         var ids = doneItems.map(\.id)
@@ -341,6 +348,25 @@ struct ContentView: View {
         }
     }
 
+    private var completedCount: Int { store.items.filter(\.done).count }
+
+    /// "2 completed · Show" — the switch for completed items, right where they'd appear.
+    private var completedRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark.circle")
+            Text("\(completedCount) completed")
+            Text("·")
+            Button(store.hideCompleted ? "Show" : "Hide") {
+                withAnimation(.easeOut(duration: 0.2)) { store.hideCompleted.toggle() }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            Spacer(minLength: 0)
+        }
+        .font(store.itemFont(0.8))
+        .foregroundStyle(.secondary)
+    }
+
     private func row(_ item: TodoItem) -> some View {
         TodoRow(item: item, store: store, editingID: $editingID, now: now,
                 onReturn: { inputFocused = true })
@@ -368,7 +394,7 @@ struct ContentView: View {
                 .foregroundStyle(Color.primary.opacity(inputFocused ? 0.45 : 0.25))
                 .onTapGesture { inputFocused = true }
             VStack(alignment: .leading, spacing: 2) {
-                TextField("New to-do", text: $newText)
+                TextField("New to-do", text: $newText, axis: .vertical)   // wraps long text
                     .textFieldStyle(.plain)
                     .font(store.itemFont())
                     .firstLineMid(store)
@@ -462,12 +488,20 @@ struct TodoRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 if isEditing {
-                    TextField("", text: $draft)
+                    TextField("", text: $draft, axis: .vertical)
                         .textFieldStyle(.plain)
                         .font(store.itemFont())
                         .firstLineMid(store)
                         .focused($fieldFocused)
                         .onAppear { draft = item.title; fieldFocused = true }
+                        .onChange(of: draft) { text in
+                            // A to-do stays one paragraph: pasted or ⌥Return line breaks become spaces.
+                            if text.contains(where: \.isNewline) {
+                                draft = text.split(whereSeparator: \.isNewline)
+                                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                                    .joined(separator: " ")
+                            }
+                        }
                         .onSubmit { commit(); onReturn() }
                         .onExitCommand { editingID = nil }
                         .onChange(of: fieldFocused) { focused in if !focused { commit() } }

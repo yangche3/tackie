@@ -35,7 +35,7 @@ private struct ReminderCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(Store.linked(item.title))
                     .font(store.noteFont(size: 14, weight: .semibold))
-                    .lineLimit(3)
+                    .lineLimit(8)
                     .fixedSize(horizontal: false, vertical: true)
                     .simultaneousGesture(TapGesture().onEnded(onOpenNote))   // links stay clickable
                 if let due = item.due {
